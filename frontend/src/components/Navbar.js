@@ -21,6 +21,14 @@ const navItems = [
     { path: '/ai/budget-optimizer', icon: '📈', label: 'Budget Optimizer' },
     { path: '/ai/schedule-optimizer', icon: '📅', label: 'Schedule Optimizer' },
     { path: '/ai/vendor-matcher', icon: '🔍', label: 'Vendor Matcher' },
+    { path: '/ai/budget-planner', icon: '🧮', label: 'Budget Planner' },
+    { path: '/ai/timeline-suggest', icon: '⏱️', label: 'Timeline Suggest' },
+    { path: '/ai/seating-optimizer', icon: '💺', label: 'Seating Optimizer' },
+    { path: '/ai/budget-variance', icon: '📊', label: 'Budget Variance' },
+    { path: '/ai/post-event-summary', icon: '📝', label: 'Post-Event Summary' },
+    { path: '/ai/menu-recommend', icon: '🍴', label: 'Menu Recommend' },
+    { path: '/ai/vendor-recommend', icon: '🤖', label: 'Vendor Recommend' },
+    { path: '/ai/guest-list-optimize', icon: '✉️', label: 'Guest List Optimize' },
   ]},
 ];
 

@@ -7,10 +7,20 @@ const jwt = require('jsonwebtoken');
 const https = require('https');
 const http = require('http');
 
+// ==================== JWT SECRET GUARD ====================
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set. Exiting.');
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.BACKEND_PORT || 3001;
 
-app.use(cors());
+// ==================== CORS ====================
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  credentials: true,
+}));
 app.use(express.json());
 
 const pool = new Pool({
@@ -21,7 +31,23 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
 });
 
-// Auth middleware
+// ==================== AI TABLE SETUP ====================
+async function ensureAiAnalysesTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ai_analyses (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      analysis_type VARCHAR(100),
+      event_id INTEGER,
+      content TEXT,
+      model VARCHAR(100),
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+}
+ensureAiAnalysesTable().catch(console.error);
+
+// ==================== AUTH MIDDLEWARE ====================
 const authenticate = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'No token provided' });
@@ -32,6 +58,63 @@ const authenticate = (req, res, next) => {
     res.status(401).json({ error: 'Invalid token' });
   }
 };
+
+// ==================== RATE LIMITER ====================
+const { aiRateLimiter } = require('./middleware/rateLimiter');
+
+// ==================== OPENROUTER ====================
+function callOpenRouter(prompt) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify({
+      model: 'anthropic/claude-3-5-sonnet-20241022',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 2000,
+    });
+
+    const options = {
+      hostname: 'openrouter.ai',
+      path: '/api/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'http://localhost:3000',
+        'X-Title': 'AI Event Planner',
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => body += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(body);
+          if (parsed.error) {
+            reject(new Error(parsed.error.message || 'OpenRouter API error'));
+          } else {
+            resolve(parsed);
+          }
+        } catch (e) {
+          reject(new Error('Failed to parse OpenRouter response'));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
+
+// ==================== AI PERSISTENCE HELPER ====================
+async function persistAnalysis(userId, analysisType, eventId, content, model) {
+  const result = await pool.query(
+    `INSERT INTO ai_analyses (user_id, analysis_type, event_id, content, model)
+     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [userId, analysisType, eventId, content, model]
+  );
+  return result.rows[0].id;
+}
 
 // ==================== AUTH ROUTES ====================
 app.post('/api/auth/register', async (req, res) => {
@@ -65,9 +148,25 @@ app.post('/api/auth/login', async (req, res) => {
 
 // ==================== GENERIC CRUD HELPER ====================
 function createCrudRoutes(tableName, routePath) {
-  // GET ALL
+  // GET ALL (with pagination)
+  const hasPagination = ['events', 'guests', 'vendors'].includes(tableName);
   app.get(`/api/${routePath}`, authenticate, async (req, res) => {
     try {
+      if (hasPagination) {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        const offset = (page - 1) * limit;
+        const countResult = await pool.query(`SELECT COUNT(*) FROM ${tableName}`);
+        const total = parseInt(countResult.rows[0].count);
+        const result = await pool.query(
+          `SELECT * FROM ${tableName} ORDER BY id DESC LIMIT $1 OFFSET $2`,
+          [limit, offset]
+        );
+        return res.json({
+          data: result.rows,
+          pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        });
+      }
       const result = await pool.query(`SELECT * FROM ${tableName} ORDER BY id DESC`);
       res.json(result.rows);
     } catch (err) {
@@ -103,6 +202,10 @@ createCrudRoutes('events', 'events');
 app.post('/api/events', authenticate, async (req, res) => {
   try {
     const { name, event_type, date, time, location, description, max_guests, budget, status } = req.body;
+    // Input validation
+    if (!name || !event_type || !date) {
+      return res.status(400).json({ error: 'name, event_type, and date are required' });
+    }
     const result = await pool.query(
       `INSERT INTO events (name, event_type, date, time, location, description, max_guests, budget, status)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
@@ -163,6 +266,10 @@ createCrudRoutes('guests', 'guests');
 app.post('/api/guests', authenticate, async (req, res) => {
   try {
     const { name, email, phone, event_id, rsvp_status, dietary_restrictions, plus_ones, table_number, notes } = req.body;
+    // Input validation
+    if (!name || !event_id) {
+      return res.status(400).json({ error: 'name and event_id are required' });
+    }
     const result = await pool.query(
       `INSERT INTO guests (name, email, phone, event_id, rsvp_status, dietary_restrictions, plus_ones, table_number, notes)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
@@ -223,6 +330,10 @@ createCrudRoutes('vendors', 'vendors');
 app.post('/api/vendors', authenticate, async (req, res) => {
   try {
     const { name, service_type, contact_email, contact_phone, hourly_rate, rating, description, availability, portfolio_url } = req.body;
+    // Input validation
+    if (!name || !service_type) {
+      return res.status(400).json({ error: 'name and service_type are required' });
+    }
     const result = await pool.query(
       `INSERT INTO vendors (name, service_type, contact_email, contact_phone, hourly_rate, rating, description, availability, portfolio_url)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
@@ -398,51 +509,9 @@ app.put('/api/entertainment/:id', authenticate, async (req, res) => {
 });
 
 // ==================== AI ROUTES (OpenRouter) ====================
-function callOpenRouter(prompt) {
-  return new Promise((resolve, reject) => {
-    const data = JSON.stringify({
-      model: process.env.OPENROUTER_MODEL || 'anthropic/claude-haiku-4.5',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 2000,
-    });
-
-    const options = {
-      hostname: 'openrouter.ai',
-      path: '/api/v1/chat/completions',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'http://localhost:3000',
-        'X-Title': 'AI Event Planner',
-      },
-    };
-
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(body);
-          if (parsed.error) {
-            reject(new Error(parsed.error.message || 'OpenRouter API error'));
-          } else {
-            resolve(parsed);
-          }
-        } catch (e) {
-          reject(new Error('Failed to parse OpenRouter response'));
-        }
-      });
-    });
-
-    req.on('error', reject);
-    req.write(data);
-    req.end();
-  });
-}
 
 // AI Event Suggestions
-app.post('/api/ai/event-suggestions', authenticate, async (req, res) => {
+app.post('/api/ai/event-suggestions', authenticate, aiRateLimiter, async (req, res) => {
   try {
     const { event_type, guest_count, budget, season, preferences } = req.body;
     const prompt = `You are an expert event planner. Generate creative and detailed event suggestions based on these requirements:
@@ -465,14 +534,15 @@ Format each suggestion clearly with headers.`;
 
     const response = await callOpenRouter(prompt);
     const content = response.choices?.[0]?.message?.content || 'No suggestions generated';
-    res.json({ result: content, model: response.model, usage: response.usage });
+    const analysisId = await persistAnalysis(req.user?.id, 'event-suggestions', null, content, response.model);
+    res.json({ result: content, analysis_id: analysisId, model: response.model, usage: response.usage });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // AI Menu Generator
-app.post('/api/ai/menu-generator', authenticate, async (req, res) => {
+app.post('/api/ai/menu-generator', authenticate, aiRateLimiter, async (req, res) => {
   try {
     const { cuisine, guest_count, budget_per_person, dietary_needs, course_count, event_type } = req.body;
     const prompt = `You are a professional chef and catering consultant. Create a complete menu for an event:
@@ -496,14 +566,15 @@ Make it creative and appetizing.`;
 
     const response = await callOpenRouter(prompt);
     const content = response.choices?.[0]?.message?.content || 'No menu generated';
-    res.json({ result: content, model: response.model, usage: response.usage });
+    const analysisId = await persistAnalysis(req.user?.id, 'menu-generator', null, content, response.model);
+    res.json({ result: content, analysis_id: analysisId, model: response.model, usage: response.usage });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // AI Budget Optimizer
-app.post('/api/ai/budget-optimizer', authenticate, async (req, res) => {
+app.post('/api/ai/budget-optimizer', authenticate, aiRateLimiter, async (req, res) => {
   try {
     const { total_budget, guest_count, event_type, priorities, current_allocations } = req.body;
     const prompt = `You are a financial advisor specializing in event planning. Optimize this event budget:
@@ -527,14 +598,15 @@ Be specific with dollar amounts and percentages.`;
 
     const response = await callOpenRouter(prompt);
     const content = response.choices?.[0]?.message?.content || 'No optimization generated';
-    res.json({ result: content, model: response.model, usage: response.usage });
+    const analysisId = await persistAnalysis(req.user?.id, 'budget-optimizer', null, content, response.model);
+    res.json({ result: content, analysis_id: analysisId, model: response.model, usage: response.usage });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // AI Schedule Optimizer
-app.post('/api/ai/schedule-optimizer', authenticate, async (req, res) => {
+app.post('/api/ai/schedule-optimizer', authenticate, aiRateLimiter, async (req, res) => {
   try {
     const { event_type, duration_hours, activities, guest_count, start_time } = req.body;
     const prompt = `You are an expert event coordinator. Create an optimized schedule for this event:
@@ -558,14 +630,15 @@ Make it professional and realistic.`;
 
     const response = await callOpenRouter(prompt);
     const content = response.choices?.[0]?.message?.content || 'No schedule generated';
-    res.json({ result: content, model: response.model, usage: response.usage });
+    const analysisId = await persistAnalysis(req.user?.id, 'schedule-optimizer', null, content, response.model);
+    res.json({ result: content, analysis_id: analysisId, model: response.model, usage: response.usage });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // AI Vendor Matcher
-app.post('/api/ai/vendor-matcher', authenticate, async (req, res) => {
+app.post('/api/ai/vendor-matcher', authenticate, aiRateLimiter, async (req, res) => {
   try {
     const { event_type, services_needed, budget, location, quality_preference } = req.body;
     const prompt = `You are a vendor relationship manager for events. Recommend ideal vendor types and selection criteria:
@@ -589,13 +662,46 @@ Be thorough and actionable.`;
 
     const response = await callOpenRouter(prompt);
     const content = response.choices?.[0]?.message?.content || 'No recommendations generated';
-    res.json({ result: content, model: response.model, usage: response.usage });
+    const analysisId = await persistAnalysis(req.user?.id, 'vendor-matcher', null, content, response.model);
+    res.json({ result: content, analysis_id: analysisId, model: response.model, usage: response.usage });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Dashboard stats
+// ==================== NEW AI ROUTES ====================
+const { router: aiNewRouter, setDeps: setAiNewDeps } = require('./routes/aiNew');
+setAiNewDeps(pool, callOpenRouter);
+// Routes: /api/ai/seating-optimizer, /api/ai/budget-variance, /api/ai/post-event-summary
+app.use('/api/ai', authenticate, aiNewRouter);
+
+// ==================== INTEGRATIONS (apply pass 5) ====================
+// Vendor marketplace, hybrid streaming (gated on STREAMING_PROVIDER_API_KEY),
+// day-of coordination — additive only, see routes/integrations.js
+const { router: integrationsRouter, setPool: setIntegrationsPool } = require('./routes/integrations');
+setIntegrationsPool(pool);
+app.use('/api/integrations', authenticate, integrationsRouter);
+
+// ==================== RSVP ROUTES ====================
+// generate-link is authenticated; token GET/POST endpoints are public
+const { router: rsvpRouter, setPool: setRsvpPool } = require('./routes/rsvp');
+setRsvpPool(pool);
+app.use('/api/rsvp', (req, res, next) => {
+  // Require auth only for generate-link
+  if (req.method === 'POST' && req.path === '/generate-link') {
+    return authenticate(req, res, next);
+  }
+  next();
+}, rsvpRouter);
+const _aec = require('./routes/agenticEventCoordinator'); _aec.setDeps(pool, callOpenRouter); app.use('/api/agentic-event-coordinator', authenticate, _aec.router);
+const _ds = require('./routes/decorSuggestions'); _ds.setDeps(pool, callOpenRouter); app.use('/api/decor-suggestions', authenticate, _ds.router);
+const _rgm = require('./routes/realtimeGuestManager'); _rgm.setPool(pool); app.use('/api/realtime-guest-manager', authenticate, _rgm.router);
+const _vm = require('./routes/vendorMarketplace'); _vm.setPool(pool); app.use('/api/vendor-marketplace', authenticate, _vm.router);
+const _doc = require('./routes/dayOfCoordinator'); _doc.setPool(pool); app.use('/api/day-of-coordinator', authenticate, _doc.router);
+const _pea = require('./routes/postEventAnalytics'); _pea.setPool(pool); app.use('/api/post-event-analytics', authenticate, _pea.router);
+const _hei = require('./routes/hybridEventIntegration'); _hei.setPool(pool); app.use('/api/hybrid-event', authenticate, _hei.router);
+
+// ==================== DASHBOARD ====================
 app.get('/api/dashboard/stats', authenticate, async (req, res) => {
   try {
     const events = await pool.query('SELECT COUNT(*) FROM events');
@@ -618,6 +724,14 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
   }
 });
 
+
+// === Batch 03 Gaps & Frontend Mounts ===
+try {
+  const _batch03 = require('./routes/batch03Gaps');
+  if (typeof authenticateToken === 'function') app.use('/api', authenticateToken, _batch03);
+  else app.use('/api', _batch03);
+} catch (_e) { /* batch03 gap routes optional */ }
+
 app.listen(PORT, () => {
-  console.log(`🚀 AI Event Planner API running on port ${PORT}`);
+  console.log(`AI Event Planner API running on port ${PORT}`);
 });

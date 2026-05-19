@@ -732,6 +732,13 @@ try {
   else app.use('/api', _batch03);
 } catch (_e) { /* batch03 gap routes optional */ }
 
+// === Custom Views (4 endpoints) — mount BEFORE any 404 catch-all ===
+try {
+  const _cv = require('./routes/customViews');
+  _cv.setPool(pool);
+  app.use('/api/custom-views', authenticate, _cv.router);
+} catch (_e) { console.error('customViews mount failed:', _e.message); }
+
 app.listen(PORT, () => {
   console.log(`AI Event Planner API running on port ${PORT}`);
 });

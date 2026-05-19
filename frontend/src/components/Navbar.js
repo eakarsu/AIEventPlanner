@@ -15,6 +15,9 @@ const navItems = [
     { path: '/seating', icon: '💺', label: 'Seating' },
     { path: '/entertainment', icon: '🎭', label: 'Entertainment' },
   ]},
+  { section: 'Custom', items: [
+    { path: '/custom-views', icon: '🗂️', label: 'Event Views' },
+  ]},
   { section: 'AI Assistant', items: [
     { path: '/ai/event-suggestions', icon: '🤖', label: 'Event Suggestions' },
     { path: '/ai/menu-generator', icon: '🧑‍🍳', label: 'Menu Generator' },

@@ -12,6 +12,7 @@ import FormActionPage from './pages/FormActionPage';
 import Navbar from './components/Navbar';
 
 import Batch03Features from './pages/Batch03Features';
+import CustomViewsPage from './pages/CustomViewsPage';
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -42,6 +43,7 @@ function App() {
         <div className="main-content">
           <Routes>
           <Route path="/batch03" element={<Batch03Features />} />
+            <Route path="/custom-views" element={<CustomViewsPage token={token} />} />
             <Route path="/" element={<Dashboard token={token} />} />
             <Route path="/events" element={<CrudPage token={token} endpoint="events" title="Events" fields={eventFields} />} />
             <Route path="/venues" element={<CrudPage token={token} endpoint="venues" title="Venues" fields={venueFields} />} />

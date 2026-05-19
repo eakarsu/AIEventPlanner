@@ -15,12 +15,23 @@ const navItems = [
     { path: '/seating', icon: '💺', label: 'Seating' },
     { path: '/entertainment', icon: '🎭', label: 'Entertainment' },
   ]},
+  { section: 'Custom', items: [
+    { path: '/custom-views', icon: '🗂️', label: 'Event Views' },
+  ]},
   { section: 'AI Assistant', items: [
     { path: '/ai/event-suggestions', icon: '🤖', label: 'Event Suggestions' },
     { path: '/ai/menu-generator', icon: '🧑‍🍳', label: 'Menu Generator' },
     { path: '/ai/budget-optimizer', icon: '📈', label: 'Budget Optimizer' },
     { path: '/ai/schedule-optimizer', icon: '📅', label: 'Schedule Optimizer' },
     { path: '/ai/vendor-matcher', icon: '🔍', label: 'Vendor Matcher' },
+    { path: '/ai/budget-planner', icon: '🧮', label: 'Budget Planner' },
+    { path: '/ai/timeline-suggest', icon: '⏱️', label: 'Timeline Suggest' },
+    { path: '/ai/seating-optimizer', icon: '💺', label: 'Seating Optimizer' },
+    { path: '/ai/budget-variance', icon: '📊', label: 'Budget Variance' },
+    { path: '/ai/post-event-summary', icon: '📝', label: 'Post-Event Summary' },
+    { path: '/ai/menu-recommend', icon: '🍴', label: 'Menu Recommend' },
+    { path: '/ai/vendor-recommend', icon: '🤖', label: 'Vendor Recommend' },
+    { path: '/ai/guest-list-optimize', icon: '✉️', label: 'Guest List Optimize' },
   ]},
 ];
 

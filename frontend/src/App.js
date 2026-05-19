@@ -5,7 +5,14 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CrudPage from './pages/CrudPage';
 import AIPage from './pages/AIPage';
+import BudgetPlannerPage from './pages/BudgetPlannerPage';
+import TimelineSuggestPage from './pages/TimelineSuggestPage';
+import EventActionPage from './pages/EventActionPage';
+import FormActionPage from './pages/FormActionPage';
 import Navbar from './components/Navbar';
+
+import Batch03Features from './pages/Batch03Features';
+import CustomViewsPage from './pages/CustomViewsPage';
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -35,6 +42,8 @@ function App() {
         <Navbar user={user} onLogout={handleLogout} />
         <div className="main-content">
           <Routes>
+          <Route path="/batch03" element={<Batch03Features />} />
+            <Route path="/custom-views" element={<CustomViewsPage token={token} />} />
             <Route path="/" element={<Dashboard token={token} />} />
             <Route path="/events" element={<CrudPage token={token} endpoint="events" title="Events" fields={eventFields} />} />
             <Route path="/venues" element={<CrudPage token={token} endpoint="venues" title="Venues" fields={venueFields} />} />
@@ -51,6 +60,16 @@ function App() {
             <Route path="/ai/budget-optimizer" element={<AIPage token={token} endpoint="ai/budget-optimizer" title="AI Budget Optimizer" fields={aiBudgetFields} />} />
             <Route path="/ai/schedule-optimizer" element={<AIPage token={token} endpoint="ai/schedule-optimizer" title="AI Schedule Optimizer" fields={aiScheduleFields} />} />
             <Route path="/ai/vendor-matcher" element={<AIPage token={token} endpoint="ai/vendor-matcher" title="AI Vendor Matcher" fields={aiVendorFields} />} />
+            <Route path="/ai/budget-planner" element={<BudgetPlannerPage token={token} />} />
+            <Route path="/ai/timeline-suggest" element={<TimelineSuggestPage token={token} />} />
+            <Route path="/ai/seating-optimizer" element={<EventActionPage token={token} endpoint="ai/seating-optimizer" title="AI Seating Optimizer" description="Optimal table assignments for an existing event's guests." />} />
+            <Route path="/ai/budget-variance" element={<EventActionPage token={token} endpoint="ai/budget-variance" title="AI Budget Variance" description="Estimated-vs-actual variance analysis for an event's budget items." />} />
+            <Route path="/ai/post-event-summary" element={<EventActionPage token={token} endpoint="ai/post-event-summary" title="AI Post-Event Summary" description="Lessons-learned report drawing on guests, vendors, and tasks." />} />
+            <Route path="/ai/menu-recommend" element={<FormActionPage token={token} endpoint="ai/menu-recommend" title="AI Menu Recommend" description="AI-built menu options with per-guest costs given dietary needs and budget." resultKey="menu" fields={aiMenuRecommendFields} />} />
+            <Route path="/ai/vendor-recommend" element={<FormActionPage token={token} endpoint="ai/vendor-recommend" title="AI Vendor Recommend" description="Vendor archetypes, interview questions, and red flags for an event." resultKey="recommendations" fields={aiVendorRecommendFields} />} />
+            <Route path="/ai/guest-list-optimize" element={<FormActionPage token={token} endpoint="ai/guest-list-optimize" title="AI Guest-List Optimize" description="Tiered guest-list rationale with trim/expand strategies and RSVP buffer." resultKey="optimization" fields={aiGuestListOptimizeFields} />} />
+            <Route path="/ai/decor-suggest" element={<FormActionPage token={token} endpoint="ai/decor-suggest" title="AI Decor Suggest" description="Mood-board concept with palette, decor elements, lighting plan, florals." resultKey="decor" fields={aiDecorSuggestFields} />} />
+            <Route path="/ai/feedback-summarize" element={<FormActionPage token={token} endpoint="ai/feedback-summarize" title="AI Feedback Summarize" description="Post-event sentiment, themes, and improvement recommendations from feedback." resultKey="summary" fields={aiFeedbackSummarizeFields} />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </div>
@@ -209,6 +228,46 @@ const aiVendorFields = [
   { name: 'budget', label: 'Budget Range ($)', type: 'text', placeholder: '5000-15000' },
   { name: 'location', label: 'Location', type: 'text', placeholder: 'e.g., San Francisco Bay Area' },
   { name: 'quality_preference', label: 'Quality Preference', type: 'select', options: ['Budget-friendly', 'Mid-range', 'High quality', 'Luxury/Premium'] },
+];
+
+const aiMenuRecommendFields = [
+  { name: 'event_type', label: 'Event Type', type: 'text', placeholder: 'e.g., Wedding, Corporate Dinner', required: true },
+  { name: 'headcount', label: 'Headcount', type: 'number', placeholder: '100', required: true },
+  { name: 'cuisine_preference', label: 'Cuisine Preference', type: 'text', placeholder: 'e.g., Mediterranean, Asian Fusion' },
+  { name: 'dietary_restrictions', label: 'Dietary Restrictions', type: 'textarea', placeholder: 'e.g., 10 vegetarian, 2 gluten-free, 1 halal' },
+  { name: 'budget_per_person', label: 'Budget Per Person', type: 'number', placeholder: '85' },
+  { name: 'currency', label: 'Currency', type: 'text', placeholder: 'USD' },
+];
+
+const aiVendorRecommendFields = [
+  { name: 'event_type', label: 'Event Type', type: 'text', placeholder: 'e.g., Wedding, Conference', required: true },
+  { name: 'headcount', label: 'Headcount', type: 'number', placeholder: '150' },
+  { name: 'services_needed', label: 'Services Needed', type: 'textarea', placeholder: 'e.g., Catering, Photography, Music, Flowers' },
+  { name: 'budget', label: 'Total Budget', type: 'text', placeholder: '$25000' },
+  { name: 'location', label: 'Location', type: 'text', placeholder: 'e.g., Austin, TX' },
+  { name: 'quality_tier', label: 'Quality Tier', type: 'select', options: ['budget-friendly', 'mid-range', 'high-quality', 'luxury'] },
+];
+
+const aiGuestListOptimizeFields = [
+  { name: 'event_type', label: 'Event Type', type: 'text', placeholder: 'e.g., Wedding, Charity Gala', required: true },
+  { name: 'event_goals', label: 'Event Goals', type: 'textarea', placeholder: 'What this event needs to accomplish (network, celebrate, fundraise...)', required: true },
+  { name: 'max_guests', label: 'Max Guests Target', type: 'number', placeholder: '120' },
+  { name: 'current_list_size', label: 'Current List Size', type: 'number', placeholder: '180' },
+  { name: 'budget_constraint', label: 'Budget Constraint', type: 'text', placeholder: 'e.g., $200/head ceiling' },
+];
+
+// Apply pass 5 wave-1 — decor + feedback summary fields
+const aiDecorSuggestFields = [
+  { name: 'event_type', label: 'Event Type', type: 'text', placeholder: 'e.g., Wedding, Gala', required: true },
+  { name: 'theme', label: 'Theme', type: 'text', placeholder: 'e.g., garden party, art deco' },
+  { name: 'color_scheme', label: 'Color Scheme', type: 'text', placeholder: 'e.g., blush + sage' },
+  { name: 'season', label: 'Season', type: 'select', options: ['', 'spring', 'summer', 'fall', 'winter'] },
+  { name: 'headcount', label: 'Headcount', type: 'number', placeholder: '120' },
+];
+
+const aiFeedbackSummarizeFields = [
+  { name: 'event_id', label: 'Event ID (optional, reads event_feedback / guest notes)', type: 'number', placeholder: '42' },
+  { name: 'feedback', label: 'Or paste feedback as JSON array', type: 'json', placeholder: '[{"rating":5,"comment":"loved the band"},{"rating":3,"comment":"food was cold"}]' },
 ];
 
 export default App;

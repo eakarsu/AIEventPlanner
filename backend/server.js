@@ -66,7 +66,7 @@ const { aiRateLimiter } = require('./middleware/rateLimiter');
 function callOpenRouter(prompt) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify({
-      model: 'anthropic/claude-3-5-sonnet-20241022',
+      model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 2000,
     });

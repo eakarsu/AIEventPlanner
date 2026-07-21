@@ -8,10 +8,7 @@ const https = require('https');
 const http = require('http');
 
 // ==================== JWT SECRET GUARD ====================
-if (!process.env.JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET environment variable is not set. Exiting.');
-  process.exit(1);
-}
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) throw new Error('JWT_SECRET must be configured with at least 32 characters');
 
 const app = express();
 const PORT = process.env.BACKEND_PORT || 3001;
@@ -30,22 +27,6 @@ const pool = new Pool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
 });
-
-// ==================== AI TABLE SETUP ====================
-async function ensureAiAnalysesTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS ai_analyses (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER,
-      analysis_type VARCHAR(100),
-      event_id INTEGER,
-      content TEXT,
-      model VARCHAR(100),
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-  `);
-}
-ensureAiAnalysesTable().catch(console.error);
 
 // ==================== AUTH MIDDLEWARE ====================
 const authenticate = (req, res, next) => {
@@ -125,7 +106,7 @@ app.post('/api/auth/register', async (req, res) => {
       'INSERT INTO users (email, password, name) VALUES ($1, $2, $3) RETURNING id, email, name',
       [email, hash, name]
     );
-    const token = jwt.sign({ id: result.rows[0].id, email }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: result.rows[0].id, email, role: result.rows[0].role || 'planner' }, process.env.JWT_SECRET, { expiresIn: '24h' });
     res.json({ user: result.rows[0], token });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -139,7 +120,7 @@ app.post('/api/auth/login', async (req, res) => {
     if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
     const valid = await bcrypt.compare(password, result.rows[0].password);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = jwt.sign({ id: result.rows[0].id, email }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: result.rows[0].id, email, role: result.rows[0].role || 'planner' }, process.env.JWT_SECRET, { expiresIn: '24h' });
     res.json({ user: { id: result.rows[0].id, email: result.rows[0].email, name: result.rows[0].name }, token });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -700,6 +681,7 @@ const _vm = require('./routes/vendorMarketplace'); _vm.setPool(pool); app.use('/
 const _doc = require('./routes/dayOfCoordinator'); _doc.setPool(pool); app.use('/api/day-of-coordinator', authenticate, _doc.router);
 const _pea = require('./routes/postEventAnalytics'); _pea.setPool(pool); app.use('/api/post-event-analytics', authenticate, _pea.router);
 const _hei = require('./routes/hybridEventIntegration'); _hei.setPool(pool); app.use('/api/hybrid-event', authenticate, _hei.router);
+const _gec = require('./routes/governedEventControl'); _gec.setPool(pool); app.use('/api/governed-event-control', authenticate, _gec);
 
 // ==================== DASHBOARD ====================
 app.get('/api/dashboard/stats', authenticate, async (req, res) => {
@@ -724,13 +706,6 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
   }
 });
 
-
-// === Batch 03 Gaps & Frontend Mounts ===
-try {
-  const _batch03 = require('./routes/batch03Gaps');
-  if (typeof authenticateToken === 'function') app.use('/api', authenticateToken, _batch03);
-  else app.use('/api', _batch03);
-} catch (_e) { /* batch03 gap routes optional */ }
 
 // === Custom Views (4 endpoints) — mount BEFORE any 404 catch-all ===
 try {

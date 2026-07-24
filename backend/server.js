@@ -52,9 +52,12 @@ function callOpenRouter(prompt) {
       max_tokens: 2000,
     });
 
+    const baseUrl = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '');
+    const apiUrl = new URL(`${baseUrl}/chat/completions`);
     const options = {
-      hostname: 'openrouter.ai',
-      path: '/api/v1/chat/completions',
+      hostname: apiUrl.hostname,
+      port: apiUrl.port || undefined,
+      path: `${apiUrl.pathname}${apiUrl.search}`,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -64,7 +67,8 @@ function callOpenRouter(prompt) {
       },
     };
 
-    const req = https.request(options, (res) => {
+    const transport = apiUrl.protocol === 'http:' ? http : https;
+    const req = transport.request(options, (res) => {
       let body = '';
       res.on('data', (chunk) => body += chunk);
       res.on('end', () => {
@@ -124,6 +128,16 @@ app.post('/api/auth/login', async (req, res) => {
     res.json({ user: { id: result.rows[0].id, email: result.rows[0].email, name: result.rows[0].name }, token });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/auth/me', authenticate, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, email, name, role FROM users WHERE id = $1', [req.user.id]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'User not found' });
+    return res.json({ user: result.rows[0] });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 });
 

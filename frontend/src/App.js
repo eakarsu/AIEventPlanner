@@ -10,6 +10,7 @@ import TimelineSuggestPage from './pages/TimelineSuggestPage';
 import EventActionPage from './pages/EventActionPage';
 import FormActionPage from './pages/FormActionPage';
 import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
 
 import Batch03Features from './pages/Batch03Features';
 import CustomViewsPage from './pages/CustomViewsPage';
@@ -43,8 +44,8 @@ function App() {
 
   return (
     <Router>
-      <div className="app">
-        <Navbar user={user} onLogout={handleLogout} />
+      <div className="app-shell">
+        <Sidebar user={user} onLogout={handleLogout} />
         <div className="main-content">
           <Routes>
         <Route path="/insights/timeline" element={<TimelineView />} />

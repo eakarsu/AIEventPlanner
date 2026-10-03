@@ -10,6 +10,7 @@ import TimelineSuggestPage from './pages/TimelineSuggestPage';
 import EventActionPage from './pages/EventActionPage';
 import FormActionPage from './pages/FormActionPage';
 import Navbar from './components/Navbar';
+import AppSidebar from './components/AppSidebar';
 
 import Batch03Features from './pages/Batch03Features';
 import CustomViewsPage from './pages/CustomViewsPage';
@@ -43,7 +44,8 @@ function App() {
 
   return (
     <Router>
-      <div className="app">
+      <div className="app codex-nav-shell">
+        <AppSidebar />
         <Navbar user={user} onLogout={handleLogout} />
         <div className="main-content">
           <Routes>

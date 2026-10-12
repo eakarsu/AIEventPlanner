@@ -33,6 +33,8 @@ const LINKS = [
   { to: '/ai/vendor-recommend', label: 'Vendor Recommend', group: 'AI tools' },
   { to: '/ai/guest-list-optimize', label: 'Guest List Optimize', group: 'AI tools' },
   { to: '/ai/decor-suggest', label: 'Decor Suggest', group: 'AI tools' },
+  { to: '/ai/agentic-coordinator', label: 'Event Coordinator', group: 'AI tools' },
+  { to: '/ai/decor-moodboard', label: 'Decor Moodboard', group: 'AI tools' },
   { to: '/ai/feedback-summarize', label: 'Feedback Summarize', group: 'AI tools' },
 ];
 

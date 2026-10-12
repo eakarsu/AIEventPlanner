@@ -80,6 +80,8 @@ function App() {
             <Route path="/ai/vendor-recommend" element={<FormActionPage token={token} endpoint="ai/vendor-recommend" title="AI Vendor Recommend" description="Vendor archetypes, interview questions, and red flags for an event." resultKey="recommendations" fields={aiVendorRecommendFields} />} />
             <Route path="/ai/guest-list-optimize" element={<FormActionPage token={token} endpoint="ai/guest-list-optimize" title="AI Guest-List Optimize" description="Tiered guest-list rationale with trim/expand strategies and RSVP buffer." resultKey="optimization" fields={aiGuestListOptimizeFields} />} />
             <Route path="/ai/decor-suggest" element={<FormActionPage token={token} endpoint="ai/decor-suggest" title="AI Decor Suggest" description="Mood-board concept with palette, decor elements, lighting plan, florals." resultKey="decor" fields={aiDecorSuggestFields} />} />
+            <Route path="/ai/agentic-coordinator" element={<FormActionPage token={token} endpoint="agentic-event-coordinator/plan" title="AI Event Coordinator" description="Prepare a draft plan using the saved venue and vendor catalog. Review all proposed references; this does not book suppliers or approve spending." resultKey="plan" fields={aiCoordinatorFields} samples={aiCoordinatorSamples} />} />
+            <Route path="/ai/decor-moodboard" element={<FormActionPage token={token} endpoint="decor-suggestions/moodboard" title="AI Decor Moodboard" description="Draft a moodboard from the supplied fictional theme, colors and optional venue context. No actual image generation, vendor booking or purchasing is performed." resultKey="suggestions" fields={aiMoodboardFields} samples={aiMoodboardSamples} />} />
             <Route path="/ai/feedback-summarize" element={<FormActionPage token={token} endpoint="ai/feedback-summarize" title="AI Feedback Summarize" description="Post-event sentiment, themes, and improvement recommendations from feedback." resultKey="summary" fields={aiFeedbackSummarizeFields} />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
@@ -282,3 +284,107 @@ const aiFeedbackSummarizeFields = [
 ];
 
 export default App;
+
+const aiCoordinatorFields = [
+  {
+    "name": "brief",
+    "label": "Draft event brief",
+    "type": "textarea",
+    "required": true
+  },
+  {
+    "name": "attendees",
+    "label": "Illustrative attendee count",
+    "type": "number",
+    "min": 1
+  },
+  {
+    "name": "budget",
+    "label": "Planning budget",
+    "type": "number",
+    "min": 0
+  }
+];
+const aiCoordinatorSamples = [
+  {
+    "label": "Demo AI · Team workshop",
+    "values": {
+      "brief": "Fictional workshop planning draft. Review saved catalog options and propose a timeline; verify availability and pricing before any real decision.",
+      "attendees": 60,
+      "budget": 10000
+    }
+  },
+  {
+    "label": "Demo AI · Community evening",
+    "values": {
+      "brief": "Fictional community evening draft. Suggest a planning outline and catalog options with accessibility questions; no booking, approval or verified supplier availability is asserted.",
+      "attendees": 120,
+      "budget": 25000
+    }
+  },
+  {
+    "label": "Demo AI · Small retreat",
+    "values": {
+      "brief": "Fictional team retreat draft. Prepare a tentative venue/vendor checklist and budget breakdown from actual catalog information; identify missing evidence and require separate human review.",
+      "attendees": 25,
+      "budget": 7500
+    }
+  }
+];
+const aiMoodboardFields = [
+  {
+    "name": "theme",
+    "label": "Draft theme",
+    "type": "text",
+    "required": true
+  },
+  {
+    "name": "colors",
+    "label": "Color palette (JSON array)",
+    "type": "json",
+    "jsonShape": "array"
+  },
+  {
+    "name": "venue_type",
+    "label": "Venue context",
+    "type": "text"
+  }
+];
+const aiMoodboardSamples = [
+  {
+    "label": "Demo AI · Garden palette",
+    "values": {
+      "theme": "Fictional garden reception",
+      "colors": [
+        "#166534",
+        "#f5f5dc",
+        "#ffffff"
+      ],
+      "venue_type": "Illustrative garden setting; no actual reservation"
+    }
+  },
+  {
+    "label": "Demo AI · Evening palette",
+    "values": {
+      "theme": "Fictional contemporary evening",
+      "colors": [
+        "#1e3a8a",
+        "#c0c0c0",
+        "#ffffff"
+      ],
+      "venue_type": "Illustrative ballroom; verify actual dimensions separately"
+    }
+  },
+  {
+    "label": "Demo AI · Community palette",
+    "values": {
+      "theme": "Fictional community gathering",
+      "colors": [
+        "#c2410c",
+        "#fef3c7",
+        "#166534"
+      ],
+      "venue_type": "Illustrative community hall; no confirmed vendor or booking"
+    }
+  }
+];

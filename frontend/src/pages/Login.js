@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API = (process.env.REACT_APP_API_URL || '').replace(/\/api\/?$/, '');
+const demoEnabled = process.env.NODE_ENV !== 'production' && process.env.REACT_APP_ENABLE_DEMO_CREDENTIAL_AUTOFILL === 'true' && Boolean(process.env.REACT_APP_DEMO_EMAIL && process.env.REACT_APP_DEMO_PASSWORD);
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -8,29 +9,40 @@ export default function Login({ onLogin }) {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const authRequest = useRef(false);
+  const signIn = async (credentials) => {
+    if (authRequest.current) return;
+    authRequest.current = true;
     setError('');
     setIsLoading(true);
     try {
       const res = await fetch(`${API}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(credentials),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
+      if (!data.user || !data.token) throw new Error('Sign in returned an incomplete session. Try again.');
       onLogin(data.user, data.token);
     } catch (err) {
       setError(err.message);
     } finally {
+      authRequest.current = false;
       setIsLoading(false);
     }
   };
 
-  const autoFill = () => {
-    setEmail(process.env.REACT_APP_DEMO_EMAIL || '');
-    setPassword(process.env.REACT_APP_DEMO_PASSWORD || '');
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    return signIn({ email, password });
+  };
+  const demoLogin = () => {
+    if (!demoEnabled) { setError('Demo credentials are unavailable in this environment.'); return; }
+    const credentials = { email: process.env.REACT_APP_DEMO_EMAIL, password: process.env.REACT_APP_DEMO_PASSWORD };
+    setEmail(credentials.email);
+    setPassword(credentials.password);
+    return signIn(credentials);
   };
 
   return (
@@ -70,9 +82,10 @@ export default function Login({ onLogin }) {
           </button>
         </form>
 
-        <button className="auto-fill-btn" onClick={autoFill}>
-          Auto Fill Demo Credentials
+        <button type="button" className="auto-fill-btn" onClick={demoLogin} disabled={isLoading || !demoEnabled}>
+          Log In as Demo
         </button>
+        {!demoEnabled && <p role="status">Demo credentials are unavailable. Use your existing account to sign in.</p>}
       </div>
     </div>
   );

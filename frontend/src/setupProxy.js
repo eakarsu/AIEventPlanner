@@ -5,5 +5,11 @@ module.exports = function configureProxy(app) {
   app.use('/api', createProxyMiddleware({
     target: `http://127.0.0.1:${port}`,
     changeOrigin: true,
+    onProxyReq(upstream, req, res) {
+      const abort = () => { if (!res.writableEnded) upstream.destroy(); };
+      req.once('aborted', abort); res.once('close', abort);
+      upstream.once('close', () => { req.off('aborted', abort); res.off('close', abort); });
+      if (req.aborted || res.destroyed) abort();
+    },
   }));
 };

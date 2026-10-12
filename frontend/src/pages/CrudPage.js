@@ -136,7 +136,7 @@ export default function CrudPage({ token, endpoint, title, fields }) {
             </thead>
             <tbody>
               {filtered.map(item => (
-                <tr key={item.id} onClick={() => setShowDetail(item)}>
+                <tr key={item.id} onClick={() => setShowDetail(item)} tabIndex={0} onKeyDown={(event) => { if ((event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget) { event.preventDefault(); (() => setShowDetail(item))(event); } }}>
                   <td>{item.id}</td>
                   {displayFields.map(f => (
                     <td key={f.name}>
@@ -186,7 +186,7 @@ export default function CrudPage({ token, endpoint, title, fields }) {
               <button className="btn-danger" onClick={() => handleDelete(showDetail.id)}>Delete</button>
               <button className="btn-primary" onClick={() => openEdit(showDetail)}>Edit</button>
             </div>
-          </div>
+          <div className="modal-footer"><button type="button" className="btn btn-secondary" onClick={() => setShowDetail(null)}>Cancel</button></div></div>
         </div>
       )}
 

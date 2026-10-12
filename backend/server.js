@@ -44,8 +44,9 @@ const authenticate = (req, res, next) => {
 const { aiRateLimiter } = require('./middleware/rateLimiter');
 
 // ==================== OPENROUTER ====================
-function callOpenRouter(prompt) {
+function callOpenRouter(prompt, requestOptions = {}) {
   return new Promise((resolve, reject) => {
+    requestOptions.signal?.throwIfAborted();
     const data = JSON.stringify({
       model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022',
       messages: [{ role: 'user', content: prompt }],
@@ -56,6 +57,7 @@ function callOpenRouter(prompt) {
     const apiUrl = new URL(`${baseUrl}/chat/completions`);
     const options = {
       hostname: apiUrl.hostname,
+      signal: requestOptions.signal,
       port: apiUrl.port || undefined,
       path: `${apiUrl.pathname}${apiUrl.search}`,
       method: 'POST',
@@ -72,6 +74,7 @@ function callOpenRouter(prompt) {
       let body = '';
       res.on('data', (chunk) => body += chunk);
       res.on('end', () => {
+        if (requestOptions.signal?.aborted) return reject(requestOptions.signal.reason);
         try {
           const parsed = JSON.parse(body);
           if (parsed.error) {

@@ -1,67 +1,20 @@
+import AIFieldPresets, { completeExample } from './AIFieldPresets';
+import AIResultView from './AIResultView';
+import useCancelableAI from './useCancelableAI';
 import React, { useState } from 'react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
-function parseAIResponse(text) {
-  if (!text) return '';
 
-  // Convert markdown-style formatting to HTML
-  let html = text
-    // Headers
-    .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    // Bold
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // Italic
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Numbered lists
-    .replace(/^(\d+)\.\s+(.+)$/gm, '<li class="numbered">$2</li>')
-    // Bullet lists
-    .replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>')
-    // Horizontal rules
-    .replace(/^---+$/gm, '<hr/>')
-    // Line breaks
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br/>');
-
-  // Wrap consecutive <li> elements in <ul>
-  html = html.replace(/((?:<li[^>]*>.*?<\/li>\s*(?:<br\/>)?)+)/g, '<ul>$1</ul>');
-
-  // Clean up <br/> inside <ul>
-  html = html.replace(/<ul>(.*?)<\/ul>/gs, (match) => {
-    return match.replace(/<br\/>/g, '');
-  });
-
-  return `<p>${html}</p>`;
-}
 
 export default function AIPage({ token, endpoint, title, fields }) {
   const [formData, setFormData] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [response, setResponse] = useState(null);
-  const [error, setError] = useState('');
+  const aiRequest = useCancelableAI();
+  const { loading, result: response, setResult: setResponse, error, setError: setError } = aiRequest;
 
-  const handleSubmit = async () => {
-    setLoading(true);
-    setError('');
-    setResponse(null);
-    try {
-      const res = await fetch(`${API}/api/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(formData),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'AI request failed');
-      setResponse(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+
+
+  const handleSubmit = async (event) => { event?.preventDefault?.(); return aiRequest.run(async (options) => { const res = await fetch(`${API}/api/${endpoint}`, { ...options, method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(formData) }); const data = await res.json(); if (!res.ok) throw new Error(data.error || 'AI request failed'); return data; }); };
 
   return (
     <div className="ai-page">
@@ -71,6 +24,9 @@ export default function AIPage({ token, endpoint, title, fields }) {
       </div>
 
       <div className="ai-form-card">
+          <AIFieldPresets fields={fields} samples={[]} context={title} disabled={loading} onFill={(sample, index) => { setFormData(completeExample(fields, sample, index, title, formData)); aiRequest.setResult(null); aiRequest.setError(null); }} />
+          {aiRequest.notice && <div className="sr-notice" role="status">{aiRequest.notice}</div>}
+
         <div className="ai-form-grid">
           {fields.map(f => (
             <div className="form-field" key={f.name}>
@@ -115,6 +71,7 @@ export default function AIPage({ token, endpoint, title, fields }) {
             <>🤖 Generate with AI</>
           )}
         </button>
+          {loading && <button type="button" className="btn btn-secondary" onClick={aiRequest.cancel}>Cancel</button>}
       </div>
 
       {error && (
@@ -132,29 +89,7 @@ export default function AIPage({ token, endpoint, title, fields }) {
         </div>
       )}
 
-      {response && !loading && (
-        <div className="ai-response-card">
-          <div className="ai-response-header">
-            <h3>
-              <span>✨</span> AI Response
-            </h3>
-            <span className="ai-model-badge">{response.model || 'AI Model'}</span>
-          </div>
-          <div className="ai-response-body">
-            <div
-              className="ai-response-content"
-              dangerouslySetInnerHTML={{ __html: parseAIResponse(response.result) }}
-            />
-          </div>
-          {response.usage && (
-            <div className="ai-usage-info">
-              <span>📥 Input: {response.usage.prompt_tokens || 0} tokens</span>
-              <span>📤 Output: {response.usage.completion_tokens || 0} tokens</span>
-              <span>📊 Total: {response.usage.total_tokens || 0} tokens</span>
-            </div>
-          )}
-        </div>
-      )}
+      <AIResultView result={response} loading={loading} error={error} title={title} />
     </div>
   );
 }

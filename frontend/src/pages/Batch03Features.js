@@ -3,7 +3,6 @@
 // and Gap endpoints (AI counterparts + non-AI features) to backend routes.
 import React, { useState } from 'react';
 
-const API_BASE = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) || 'http://localhost:4000/api';
 
 const FEATURES = [
   { kind: 'cfs', slug: 'cf-agentic-event-coordinator', label: 'Agentic event coordinator', desc: 'NL brief → venues, vendors, timeline, budget breakdown', endpoint: '/cf-agentic-event-coordinator' },
@@ -23,16 +22,10 @@ const FEATURES = [
   { kind: 'gap-non', slug: 'gap-non-no-search-endpoint-observed', label: 'No search endpoint observed', desc: 'No search endpoint observed', endpoint: '/gap-no-search-endpoint-observed' },
 ];
 
-function authHeaders() {
-  const t = (typeof window !== 'undefined') ? localStorage.getItem('token') : null;
-  return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) };
-}
 
 export default function Batch03Features() {
   const [active, setActive] = useState(FEATURES[0]?.slug);
   const [input, setInput] = useState('');
-  const [results, setResults] = useState({});
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const sampleRequests = [
@@ -51,38 +44,21 @@ export default function Batch03Features() {
   ];
 
   const applySampleRequest = (value) => {
-    setInput(value);
+    setInput(`${current.label} — illustrative capability draft.\n${current.desc}\n${value}`);
     setError(null);
   };
   const current = FEATURES.find(f => f.slug === active) || FEATURES[0];
-
-  async function run() {
-    if (!current) return;
-    setLoading(true); setError(null);
-    try {
-      let parsed;
-      try { parsed = input ? JSON.parse(input) : {}; } catch { parsed = { input }; }
-      const r = await fetch(`${API_BASE}${current.endpoint}`, {
-        method: 'POST', headers: authHeaders(), body: JSON.stringify(parsed)
-      });
-      let body; try { body = await r.json(); } catch { body = { raw: await r.text() }; }
-      if (!r.ok) setError(body.error || `HTTP ${r.status}`);
-      setResults(prev => ({ ...prev, [current.slug]: body }));
-    } catch (e) {
-      setError(String(e.message || e));
-    } finally { setLoading(false); }
-  }
 
   return (
     <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif' }}>
       <h2 style={{ marginTop: 0 }}>Batch 03 Features <small style={{ color: '#64748b', fontWeight: 400 }}>(AIEventPlanner)</small></h2>
       <p style={{ color: '#475569', maxWidth: 720 }}>
-        Audit-driven AI counterparts, non-AI feature gaps, and custom feature suggestions.
-        Backend endpoints prefixed <code>/api/cf-*</code> (custom features) and <code>/api/gap-*</code> (gap fills).
+        These prototype actions are unavailable. Draft examples do not execute an AI tool, book suppliers or change event records.
+        Use the supported <a href="/ai/agentic-coordinator">Event Coordinator</a> and <a href="/ai/decor-moodboard">Décor Moodboard</a> workspaces to generate an AI draft.
       </p>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '12px 0' }}>
         {FEATURES.map(f => (
-          <button key={f.slug} onClick={() => setActive(f.slug)}
+          <button key={f.slug} onClick={() => { setActive(f.slug); setInput(`${f.label} — illustrative capability draft.\n${f.desc}\n${sampleRequests[0].value}`); setError(null); }}
             style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #cbd5e1',
                      background: active === f.slug ? '#1e40af' : '#f8fafc',
                      color: active === f.slug ? 'white' : '#0f172a', cursor: 'pointer', fontSize: 12 }}>
@@ -95,7 +71,7 @@ export default function Batch03Features() {
           <div style={{ marginBottom: 8 }}>
             <strong>{current.label}</strong>
             <div style={{ color: '#475569', fontSize: 13 }}>{current.desc}</div>
-            <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>POST <code>{current.endpoint}</code></div>
+            <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>Unavailable prototype action</div>
           </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
           {sampleRequests.map((sample) => (
@@ -114,17 +90,12 @@ export default function Batch03Features() {
             placeholder='Optional JSON input (e.g. {"query":"..."})'
             style={{ width: '100%', minHeight: 80, padding: 8, fontFamily: 'monospace', fontSize: 12, border: '1px solid #cbd5e1', borderRadius: 4 }} />
           <div style={{ marginTop: 8 }}>
-            <button onClick={run} disabled={loading}
-              style={{ padding: '8px 16px', background: '#1e40af', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}>
-              {loading ? 'Running…' : 'Run'}
+            <button type="button" disabled
+              style={{ padding: '8px 16px', background: '#1e40af', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', opacity: 0.6 }}>
+              Generate unavailable
             </button>
           </div>
           {error && (<div style={{ marginTop: 12, padding: 10, background: '#fee2e2', color: '#991b1b', borderRadius: 4, fontSize: 13 }}>{error}</div>)}
-          {results[current.slug] && (
-            <pre style={{ marginTop: 12, padding: 10, background: '#0b1020', color: '#cbd5e1', borderRadius: 4, overflow: 'auto', maxHeight: 360, fontSize: 12 }}>
-              {typeof results[current.slug] === 'string' ? results[current.slug] : JSON.stringify(results[current.slug], null, 2)}
-            </pre>
-          )}
         </div>
       )}
     </div>

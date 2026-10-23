@@ -1,0 +1,7 @@
+'use strict';
+// Deterministic offline AI over own records. No provider calls; labelled fallback.
+const base=(feature,sections)=>({feature,aiGenerated:false,source:'deterministic-fallback',label:'Deterministic fallback — no provider call',sections});
+function eventReadiness(events,tasks){const e=events||[],t=tasks||[];const open=t.filter(x=>x.status!=='done'&&x.status!=='Done');return base('event-readiness',{'Total events':e.length,'Open tasks':open.length,'Has open tasks':open.length>0,'Events':e.map(x=>({name:x.name||'',status:x.status||'',budget:x.budget??0}))});}
+function budgetInsights(records){const list=records||[];const total=list.reduce((s,r)=>s+Number(r.budget??r.estimated_cost??0),0);const over=list.filter(r=>Number(r.actual_cost||0)>Number(r.estimated_cost||0));return base('budget-insights',{'Record count':list.length,'Total budget':total,'Over-budget count':over.length,'Has over-budget':over.length>0,'Categories':list.map(r=>r.category||r.event_type||'')});}
+function taskPrioritization(tasks){const rank={high:0,medium:1,low:2};const list=[...(tasks||[])].sort((a,b)=>(rank[String(a.priority||'medium').toLowerCase()]??1)-(rank[String(b.priority||'medium').toLowerCase()]??1));return base('task-prioritization',{'Ranked tasks':list.map(t=>({title:t.title||'',priority:t.priority||'',status:t.status||''})),'Total tasks':list.length,'Has tasks':list.length>0});}
+module.exports={eventReadiness,budgetInsights,taskPrioritization};

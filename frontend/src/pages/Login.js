@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
 
 const API = (process.env.REACT_APP_API_URL || '').replace(/\/api\/?$/, '');
-const demoEnabled = process.env.NODE_ENV !== 'production' && process.env.REACT_APP_ENABLE_DEMO_CREDENTIAL_AUTOFILL === 'true' && Boolean(process.env.REACT_APP_DEMO_EMAIL && process.env.REACT_APP_DEMO_PASSWORD);
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -37,14 +36,6 @@ export default function Login({ onLogin }) {
     event.preventDefault();
     return signIn({ email, password });
   };
-  const demoLogin = () => {
-    if (!demoEnabled) { setError('Demo credentials are unavailable in this environment.'); return; }
-    const credentials = { email: process.env.REACT_APP_DEMO_EMAIL, password: process.env.REACT_APP_DEMO_PASSWORD };
-    setEmail(credentials.email);
-    setPassword(credentials.password);
-    return signIn(credentials);
-  };
-
   return (
     <div className="login-page">
       <div className="login-card">
@@ -80,12 +71,10 @@ export default function Login({ onLogin }) {
           <button className="login-btn" type="submit" disabled={isLoading}>
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
+        <button type="button" onClick={(e) => { e.preventDefault(); setEmail('admin@demo.local'); setPassword('Demo!23456'); }}>Log In as Demo</button>
         </form>
 
-        <button type="button" className="auto-fill-btn" onClick={demoLogin} disabled={isLoading || !demoEnabled}>
-          Log In as Demo
-        </button>
-        {!demoEnabled && <p role="status">Demo credentials are unavailable. Use your existing account to sign in.</p>}
+        <p role="status">Use your existing account to sign in.</p>
       </div>
     </div>
   );

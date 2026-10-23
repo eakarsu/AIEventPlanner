@@ -134,6 +134,15 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+app.get('/api/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    return res.json({ status: 'ok', service: 'ai-event-planner', database: 'up' });
+  } catch {
+    return res.status(503).json({ status: 'error', service: 'ai-event-planner', database: 'down' });
+  }
+});
+
 app.get('/api/auth/me', authenticate, async (req, res) => {
   try {
     const result = await pool.query('SELECT id, email, name, role FROM users WHERE id = $1', [req.user.id]);
@@ -723,6 +732,12 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
   }
 });
 
+
+// Feature pack wave 1A — event search/filter + CSV/JSON export (tasks/AI already present).
+try {
+  const _fp = require('./routes/featurePack');
+  app.use('/api/feature-pack', authenticate, _fp.createFeaturePackRouter(pool));
+} catch (_e) { console.error('featurePack mount failed:', _e.message); }
 
 // === Custom Views (4 endpoints) — mount BEFORE any 404 catch-all ===
 try {
